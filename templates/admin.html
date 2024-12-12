@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tahoma:wght@700&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&display=swap" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
+
+    <title>Shirt Craft</title>
+    <style>
+        .filter-icon {
+            position: relative;
+            top: 60px;
+            left: 20px;
+        }
+
+        .filter-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .filter-header .bi-x-lg {
+            cursor: pointer;
+        }
+
+        .scrollable-content {
+            height: 300px;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .scrollable-content .row {
+            flex-wrap: wrap;
+        }
+
+        .scrollable-content .col {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+
+        .scrollable-content .col img {
+            display: block;
+            width: 100%;
+            height: 100px; /* Fixed height for uniformity */
+            object-fit: cover; /* Ensure aspect ratio is maintained */
+        }
+
+        .selected-option {
+            margin-top: 5px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            color: #000000;
+        }
+
+        /* Set the same height for both boxes */
+        .box {
+            height: 400px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        #modelContainer {
+            width: 550px; /* Make sure it takes up the full width of the parent */
+            height: 400px; /* This will fill the height of the parent .box container */
+            background-color: #f0f0f0;
+            position: relative;
+        }
+
+        #canvas {
+            width: 550px;
+            height: 400px; /* Ensure the canvas takes up the full height of the container */
+            display: block; 
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Keep dropdown and selected option aligned */
+        .dropdown-container {
+            position: relative;
+        }
+
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            z-index: 1000;
+        }
+
+        .selected-option {
+            position: absolute;
+            text-align: center;
+            top: 100%;
+            margin-top: 5px;
+            width: 90%;
+        }
+       
+        .zoom-image {
+            cursor: pointer;
+            height: auto;
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- Header with Filter Icon -->
+        <div class="d-flex justify-content-between align-items-center mt-4">
+            <h1 class="fs-1 fw-bold ms-5">SHIRT CRAFT</h1>
+            
+                <button class="btn btn-link text-decoration-none" type="button" id="toggleFilter">
+                </button>
+            <button type="button" class="btn btn-dark me-5" onclick="window.location.href='/logout'">Logout</button>
+
+
+
+        </div>
+
+        <div class="row mt-5 justify-content-center">
+            <!-- Left Box -->
+            <div class="col-md-5">
+                <div id="modelContainer">
+                    
+                </div>
+            </div>
+            <!-- Spacer Column -->
+            <div class="col-md-1"></div>
+
+            <!-- Right Box with Fabric Images -->
+            <div class="col-md-5 d-flex flex-column">
+                <div id="fabricSection" class="box flex-grow-1">
+                    <h2 class="text-center mb-4">Fabrics</h2>
+                    <!-- Scrollable content -->
+                    <div class="scrollable-content">
+                        <div class="row row-cols-4 g-3">
+                            <!-- Fabric Images -->
+                            {% for fabric in fabrics %}
+                            <div class="col">
+                                <div class="border rounded overflow-hidden fabric_image">
+                                    <a href="#" class="fabric-link" data-id="{{ fabric[0] }}">
+                                        <img src="{{ url_for('fabric_image', fabric_id=fabric[0]) }}" class="img-fluid hover-icon" alt="{{ fabric[1] }}">
+                                    </a>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>              
+                    </div>
+                </div>
+            
+                <!-- Fabric More details box (Initially hidden) -->
+                <!-- Fabric Details Section -->
+                <div id="toggleFilter">
+                    <div id="moredetails" class="box d-none h-100 overflow-auto">
+                        <div class="filter-header mb-4 d-flex justify-content-between align-items-center">
+                            <div class="w-100 text-center">
+                                <h2 class="mb-0">Fabric Details</h2>
+                            </div>
+                            <i class="bi bi-x-lg fs-3" id="backToFabricDetails"></i>
+                        </div>
+
+                        <a href="#">
+                            <div class="row row-cols-4 g-1 justify-content-center">
+                                <img id="fabricImage" src="{{ fabric_id }}" alt="200px*200px" class="rounded overflow-hidden zoom-image">
+                            </div>
+                        </a>
+
+                        <br>
+
+                        <div class="container">
+                            <div class="row mb-2 align-items-center">
+                                <div class="col-4"></div>
+                                <div class="col-2 text-right">
+                                    <label for="" class="font-weight-bold">Name:</label>
+                                </div>
+                                <div class="col-4" id="fabricName">
+                                    <span id="fabric-name"></span>
+                                </div>
+                            </div>
+
+                            <div class="row mb-2 align-items-center">
+                                <div class="col-4"></div>
+                                <div class="col-2 text-right">
+                                    <label for="" class="font-weight-bold">Material:</label>
+                                </div>
+                                <div class="col-4" id="fabricMaterial">
+                                    <span id="fabric-material"></span>
+                                </div>
+                            </div>
+
+                            <div class="row mb-2 align-items-center">
+                                <div class="col-4"></div>
+                                <div class="col-2 text-right">
+                                    <label for="" class="font-weight-bold">Color:</label>
+                                </div>
+                                <div class="col-4" id="fabricColor">
+                                    <span id="fabric-color"></span>
+                                </div>
+                            </div>
+
+                            <div class="row mb-2 align-items-center">
+                                <div class="col-4"></div>
+                                <div class="col-2 text-right">
+                                    <label for="" class="font-weight-bold">Price:</label>
+                                </div>
+                                <div class="col-4" id="fabricPrice">
+                                    <span id="fabric-price"></span>
+                                </div>
+                            </div>
+
+                            <div class="row mb-2 align-items-center">
+                                <div class="col-4"></div>
+                                <div class="col-2 text-right">
+                                    <label for="" class="font-weight-bold">Pattern:</label>
+                                </div>
+                                <div class="col-4" id="fabricPattern">
+                                    <span id="fabric-pattern"></span>
+                                </div>
+                            </div>
+
+                            <div class="row mb-2 align-items-center">
+                                <div class="col-4"></div>
+                                <div class="col-2 text-right">
+                                    <label for="" class="font-weight-bold">Category:</label>
+                                </div>
+                                <div class="col-4" id="fabricCategory">
+                                    <span id="fabric-category"></span>
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="row mt-4">
+                                <div class="col-6 text-center">
+                                    <button type="button" class="btn btn-primary btn w-50" id="btnEditFabric" data-fabric-id="{{ fabric_id }}">
+                                        <i class="bi bi-pencil"> </i>Edit
+                                    </button>
+                                </div>
+                                <div class="col-6 text-center">
+                                    <button type="button" class="btn btn-danger btn w-50" id="btnDeleteFabric" data-bs-toggle="modal" data-bs-target="#modalDeleteConfirm" data-fabric-id="{{ fabric_id }}">
+                                        <i class="bi bi-trash"></i> Delete
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Delete Fabric Modal -->
+                            <div class="modal fade" id="modalDeleteConfirm" tabindex="-1" aria-labelledby="modalDeleteConfirmLabel" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="modalDeleteConfirmLabel">Confirm Delete</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            Are you sure you want to delete this fabric?
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                            <button type="button" class="btn btn-danger" id="btnConfirmDelete">Yes, Delete</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Edit Fabric Modal -->
+                            <div class="modal fade" id="modalEditFabric" tabindex="-1" aria-labelledby="modalEditFabricLabel" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="modalEditFabricLabel">Edit Fabric Details</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <form id="formEditFabric" method="POST" action="/edit_fabric/<fabric_id>" enctype="multipart/form-data">
+                                                <div class="mb-3">
+                                                    <label for="inputFabricImage" class="form-label">Image</label>
+                                                    <input type="file" class="form-control" id="inputFabricImage" name="image">
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="inputFabricName" class="form-label">Name</label>
+                                                    <input type="text" class="form-control" id="inputFabricName" name="name" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="inputFabricMaterial" class="form-label">Material</label>
+                                                    <input type="text" class="form-control" id="inputFabricMaterial" name="material" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="inputFabricColor" class="form-label">Color</label>
+                                                    <input type="text" class="form-control" id="inputFabricColor" name="color" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="inputFabricPrice" class="form-label">Price</label>
+                                                    <input type="text" class="form-control" id="inputFabricPrice" name="price" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="inputFabricPattern" class="form-label">Pattern</label>
+                                                    <input type="text" class="form-control" id="inputFabricPattern" name="pattern" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="inputFabricCategory" class="form-label">Category</label>
+                                                    <input type="text" class="form-control" id="inputFabricCategory" name="category" required>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                    <button type="submit" class="btn btn-primary" id="btnSaveChanges">Save Changes</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                        
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+
+<!-- Upload Button (Outside Fabric Details Section) -->
+
+        
+                <!-- Modal -->
+                <!-- Modal HTML -->
+                <div class="modal fade" id="fabricModal" tabindex="-1" aria-labelledby="fabricModalLabel" aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header text-center">
+                                <h5 class="modal-title w-100" id="fabricSelectionHeading">Add Fabric Details</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <!-- Form for fabric details -->
+                                <div id="fabricForm">
+                                    <form id="formDetails">
+                                        <div class="mb-3">
+                                            <label for="fabricName" class="form-label">Fabric Name</label>
+                                            <input type="text" class="form-control" id="fabricNameinput" placeholder="Enter fabric name" required>
+                                        </div>
+                
+                                        <div class="mb-3">
+                                            <label for="fabricColor" class="form-label">Fabric Color</label>
+                                            <input type="text" class="form-control" id="fabricColorinput" placeholder="Enter fabric color" required>
+                                        </div>
+                
+                                        <div class="mb-3">
+                                            <label for="fabricPrice" class="form-label">Fabric Price</label>
+                                            <input type="number" class="form-control" id="fabricPriceinput" placeholder="Enter fabric price" step="0.01" required>
+                                        </div>
+                
+                                        <div class="mb-3">
+                                            <label for="fabricMaterial" class="form-label">Fabric Material</label>
+                                            <input type="text" class="form-control" id="fabricMaterialinput" placeholder="Enter fabric material">
+                                        </div>
+                
+                                        <div class="mb-3">
+                                            <label for="fabricPattern" class="form-label">Fabric Pattern</label>
+                                            <input type="text" class="form-control" id="fabricPatterninput" placeholder="Enter fabric pattern">
+                                        </div>
+                
+                                        <div class="mb-3">
+                                            <label for="fabricCategory" class="form-label">Fabric Category</label>
+                                            <input type="text" class="form-control" id="fabricCategoryinput" placeholder="Enter fabric category" required>
+                                        </div>
+                
+                                        <!-- Input for image upload -->
+                                        <div class="mb-3">
+                                            <label for="fabricImage" class="form-label">Fabric Image</label>
+                                            <input type="file" class="form-control" id="fabricImageinput" accept="image/*">
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                <button type="button" class="btn btn-success" id="saveButton">Save</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                
+            </div>
+        </div>
+        <div class="row mt-4">
+            <!-- Body Type Dropdown -->
+            <div class="col-md-2 dropdown-container">
+                <label class="form-label d-block text-center">Body Type</label>
+                <div class="dropdown">
+                    <button class="btn btn-secondary dropdown-toggle btn-sm w-100" type="button" id="bodyTypeDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        Select Body Type
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="bodyTypeDropdown">
+                        <li><a class="dropdown-item" href="#" data-value="fat">Fat</a></li>
+                        <li><a class="dropdown-item" href="#" data-value="slim">Slim</a></li>
+                    </ul>
+                </div>
+            </div>
+        
+            <!-- Sleeve Type Dropdown -->
+            <div class="col-md-2 dropdown-container">
+                <label class="form-label d-block text-center">Sleeve Type</label>
+                <div class="dropdown">
+                    <button class="btn btn-secondary dropdown-toggle btn-sm w-100" type="button" id="sleeveTypeDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        Select Sleeve Type
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="sleeveTypeDropdown">
+                        <li><a class="dropdown-item" href="#" data-value="half">Half Sleeve</a></li>
+                        <li><a class="dropdown-item" href="#" data-value="full">Full Sleeve</a></li>
+                    </ul>
+                </div>
+            </div>
+        
+            <!-- Collar Type Dropdown -->
+            <div class="col-md-2 dropdown-container">
+                <label class="form-label d-block text-center">Collar Type</label>
+                <div class="dropdown">
+                    <button class="btn btn-secondary dropdown-toggle btn-sm w-100" type="button" id="collarTypeDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        Select Collar Type
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="collarTypeDropdown">
+                        <li><a class="dropdown-item" href="#" data-value="normal">Normal Collar</a></li>
+                        <li><a class="dropdown-item" href="#" data-value="nehru">Nehru Collar</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-1"></div>
+            <div class="col-md-1"></div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#fabricModal" style="max-width: 200px; margin-left: 55px;">
+                    <i class="bi bi-upload"></i> Upload
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- JavaScript -->
+    <!-- Use Three.js and GLTFLoader from CDN -->
+    <!-- Use the module version of Three.js -->
+    <script>
+        let scene, camera, renderer, controls, loader;
+        let currentModel = null;
+    
+        const selections = {
+            bodyType: null,
+            sleeveType: null,
+            collarType: null,
+        };
+    
+        function init() {
+            // Scene setup
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); // Transparent background
+    
+            // Get the model container element and append the renderer to it
+            const modelContainer = document.getElementById('modelContainer');
+            renderer.setSize(modelContainer.offsetWidth, modelContainer.offsetHeight); // Set size dynamically
+            modelContainer.appendChild(renderer.domElement);
+    
+            renderer.setClearColor(0x000000, 0); // Fully transparent background
+    
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            loader = new THREE.GLTFLoader();
+    
+            // Add ambient and directional lights
+            const ambientLight = new THREE.AmbientLight(0x404040, 1);
+            scene.add(ambientLight);
+    
+            const directionalLight1 = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight1.position.set(1, 1, 1).normalize();
+            scene.add(directionalLight1);
+    
+            const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight2.position.set(-1, -1, -1).normalize();
+            scene.add(directionalLight2);
+    
+            // Position the camera
+            camera.position.set(0, 1, 5);
+            controls.target.set(0, 1, 0);
+    
+            animate();
+        }
+    
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+    
+        function constructModelPath() {
+            const { bodyType, sleeveType, collarType } = selections;
+            if (bodyType && sleeveType && collarType) {
+                return `/static/models/${bodyType}_${capitalizeFirstLetter(sleeveType)}_Sleeve_${capitalizeFirstLetter(collarType)}_Collar.glb`;
+            }
+            return null;
+        }
+    
+        function capitalizeFirstLetter(string) {
+            return string.charAt(0).toUpperCase() + string.slice(1);
+        }
+    
+        function loadModel() {
+            const modelPath = constructModelPath();
+            if (!modelPath) {
+                console.error('All dropdown options must be selected.');
+                return;
+            }
+    
+            if (currentModel) {
+                scene.remove(currentModel);
+            }
+    
+            loader.load(
+                modelPath,
+                function (gltf) {
+                    currentModel = gltf.scene;
+
+                    // Define a realistic skin tone color
+                    const skinToneColor = new THREE.Color(0xfad7b3); // Adjust this HEX value for a different tone
+
+                    // Apply the skin tone color to all meshes except "Shirt"
+                    currentModel.traverse(child => {
+                        if (child.isMesh && !child.name.includes('Shirt')) {
+                            console.log('Applying skin tone color to:', child.name); // Log affected meshes
+                            if (!child.material) {
+                                child.material = new THREE.MeshStandardMaterial(); // Create a material if none exists
+                            }
+                            child.material.color = skinToneColor;
+                            child.material.needsUpdate = true;
+                        }
+                    });
+    
+                    // Compute the bounding box of the model
+                    const box = new THREE.Box3().setFromObject(currentModel);
+                    const size = new THREE.Vector3();
+                    box.getSize(size);
+    
+                    // Center the model
+                    const center = new THREE.Vector3();
+                    box.getCenter(center);
+                    currentModel.position.set(-center.x, -center.y + size.y / 2, 0);
+    
+                    // Scale the model
+                    const maxDimension = Math.max(size.x, size.y, size.z);
+                    const scaleFactor = 2 / maxDimension;
+                    currentModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
+    
+                    scene.add(currentModel);
+    
+                    // Adjust camera
+                    const cameraZ = Math.max(size.x, size.y, size.z);
+                    camera.position.set(0, 1.7, cameraZ);
+                    controls.target.copy(new THREE.Vector3(0, size.y / 2, 0));
+                    controls.update();
+                },
+                undefined,
+                function (error) {
+                    console.error('Error loading model:', error);
+                }
+            );
+        }
+
+        function applyFabric(fabricId) {
+        fetch(`/fabric_image/${fabricId}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch fabric image');
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                const imageURL = URL.createObjectURL(blob);
+                const textureLoader = new THREE.TextureLoader();
+                textureLoader.load(imageURL, texture => {
+                    console.log('Texture loaded', texture);  // Verify that texture is loaded successfully
+                    if (currentModel) {
+                        currentModel.traverse(child => {
+                            if (child.isMesh && child.name.includes('Shirt')) { 
+                                console.log('Applying texture to shirt mesh:', child);  // Log shirt mesh details
+                                child.material.map = texture;
+                                child.material.needsUpdate = true;
+                            }
+                        });
+                    }
+                });
+
+
+            })
+            .catch(error => console.error('Error applying fabric:', error));
+    }
+
+    
+        document.querySelectorAll('.dropdown-item').forEach(item => {
+            item.addEventListener('click', function () {
+                const dropdownType = this.closest('.dropdown').querySelector('.dropdown-toggle').id;
+                const value = this.getAttribute('data-value');
+    
+                if (dropdownType === 'bodyTypeDropdown') {
+                    selections.bodyType = value;
+                } else if (dropdownType === 'sleeveTypeDropdown') {
+                    selections.sleeveType = value;
+                } else if (dropdownType === 'collarTypeDropdown') {
+                    selections.collarType = value;
+                }
+    
+                // Update dropdown button text
+                this.closest('.dropdown').querySelector('.dropdown-toggle').innerText = this.textContent;
+    
+                // Attempt to load the model after every selection
+                loadModel();
+            });
+        });
+    
+        // Resize renderer on window resize
+        window.addEventListener('resize', function () {
+            const modelContainer = document.getElementById('modelContainer');
+            renderer.setSize(modelContainer.offsetWidth, modelContainer.offsetHeight);
+            camera.aspect = modelContainer.offsetWidth / modelContainer.offsetHeight;
+            camera.updateProjectionMatrix();
+        });
+    
+        init();
+    </script>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- JavaScript to handle selection and form display -->
+
+
+    <script>
+
+
+
+
+</script>
+
+<script>
+
+    document.querySelectorAll('.fabric-link').forEach(link => {
+        link.addEventListener('click', function (event) {
+            event.preventDefault();
+            const fabricId = this.getAttribute('data-id'); // Get the fabric ID
+            console.log('Fabric ID:', fabricId); // Log the fabric ID
+            applyFabric(fabricId); // Call the function to apply the fabric
+        });
+    });
+    function capitalizeFirstLetter(text) {
+        if (!text) return text; // Return empty if input is falsy
+        return text.charAt(0).toUpperCase() + text.slice(1);
+    }
+
+    function submitForm() {
+    // Get fabric details from the form, trim whitespace, and capitalize first letter
+    const fabricName = capitalizeFirstLetter(document.getElementById('fabricNameinput').value.trim());
+    const fabricColor = capitalizeFirstLetter(document.getElementById('fabricColorinput').value.trim());
+    const fabricPrice = document.getElementById('fabricPriceinput').value.trim();
+    const fabricMaterial = capitalizeFirstLetter(document.getElementById('fabricMaterialinput').value.trim());
+    const fabricPattern = capitalizeFirstLetter(document.getElementById('fabricPatterninput').value.trim());
+    const fabricCategory = capitalizeFirstLetter(document.getElementById('fabricCategoryinput').value.trim());
+    const fabricImageInput = document.getElementById('fabricImageinput');
+
+    // Validate required fields
+    if (!fabricName || !fabricColor || !fabricPrice || !fabricCategory) {
+        alert('Fabric name, color, valid price, and category are required!');
+        return;
+    }
+
+    // Validate that price is a positive number
+    if (isNaN(fabricPrice) || parseFloat(fabricPrice) <= 0) {
+        alert('Please enter a valid positive price.');
+        return;
+    }
+
+    // Create a FormData object
+    const formData = new FormData();
+    formData.append('fabricName', fabricName);
+    formData.append('fabricColor', fabricColor);
+    formData.append('fabricPrice', fabricPrice);
+    formData.append('fabricMaterial', fabricMaterial);
+    formData.append('fabricPattern', fabricPattern);
+    formData.append('fabricCategory', fabricCategory);
+    if (fabricImageInput.files[0]) {
+        formData.append('fabricImage', fabricImageInput.files[0]);
+    }
+
+    // Send form data to the server
+    fetch('/add_fabric', {
+        method: 'POST',
+        body: formData,
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Fabric details uploaded successfully!');
+            // Close the modal
+            const modalElement = document.getElementById('fabricModal');
+            const modalInstance = bootstrap.Modal.getInstance(modalElement);
+            if (modalInstance) {
+                modalInstance.hide();
+            }
+            const backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) {
+                backdrop.remove();
+            }
+            // Reload the admin page
+            window.location.reload();
+        } else {
+            alert('An error occurred: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while uploading the fabric details.');
+    });
+}
+
+// Attach the submitForm function to the Save button's click event
+document.getElementById('saveButton').addEventListener('click', submitForm);
+
+// Reset modal form when it's closed
+document.getElementById('fabricModal').addEventListener('hidden.bs.modal', function () {
+    document.getElementById('formDetails').reset();
+});
+
+</script>
+
+
+
+
+    <!-- JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Toggle filter section visibility
+            document.getElementById('toggleFilter').addEventListener('click', function () {
+                // Hide both fabric and more details sections
+                document.getElementById('fabricSection').classList.add('d-none');
+                document.getElementById('moredetails').classList.add('d-none');
+                // Show the filter section
+                
+            });
+            
+
+            //Toggle Fabric details visibility
+            document.querySelectorAll('.fabric_image').forEach(function (element) {
+                element.addEventListener('click', function (event) {
+                    event.preventDefault(); // Prevent the default link behavior
+                    document.getElementById('moredetails').classList.remove('d-none');
+                    document.getElementById('fabricSection').classList.add('d-none');
+                });
+            });
+
+            document.querySelectorAll('.fabric-link').forEach(function (element) {
+                element.addEventListener('click', function (event) {
+                    event.preventDefault(); // Prevent the default link behavior
+                    var fabricId = this.getAttribute('data-id');
+                    
+                    });
+            });
+
+
+            // Go back to fabric section
+            
+
+            document.getElementById('backToFabricDetails').addEventListener('click', function () {
+                document.getElementById('moredetails').classList.add('d-none');
+                document.getElementById('fabricSection').classList.remove('d-none');
+            });
+
+            const fabricLinks = document.querySelectorAll('.fabric-link');
+            const moreDetails = document.getElementById('moredetails');
+            const backButton = document.getElementById('backToFabricDetails');
+
+            
+
+            fabricLinks.forEach(link => {
+            link.addEventListener('click', function(event) {
+                event.preventDefault();
+                
+                const fabricId = this.getAttribute('data-id');
+                
+                fetch(`/fabric_details/${fabricId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('fabricImage').src = data.image_url;
+                        document.getElementById('fabricName').textContent = data.name;
+                        document.getElementById('fabricMaterial').textContent = data.material;
+                        document.getElementById('fabricColor').textContent = data.color;
+                        const single_price = parseFloat(data.price);
+                        const formattedNewPrice = `${single_price.toLocaleString()} RS`;
+                        document.getElementById('fabricPrice').textContent = formattedNewPrice;
+                        document.getElementById('fabricPattern').textContent = data.pattern;
+                        document.getElementById('fabric-category').textContent = data.category;
+                        
+                        moreDetails.classList.remove('d-none');
+                    })
+                    .catch(error => console.error('Error fetching fabric details:', error));
+
+                    const editBtn = document.getElementById('btnEditFabric');
+
+                    editBtn.addEventListener('click', function() {
+                    console.log(`Fabric ID: ${fabricId}`);  // Debugging fabricId
+
+                    const myModal = new bootstrap.Modal(document.getElementById('modalEditFabric'));
+                    myModal.show();
+
+                    document.getElementById('btnSaveChanges').addEventListener('click', async function (event) {
+                            event.preventDefault();  // Prevent form from submitting normally
+
+                            // Collect the form data
+                            const formData = new FormData(document.getElementById('formEditFabric'));
+
+                            // Check if all required fields are filled
+                            const requiredFields = ['name', 'material', 'color', 'price', 'pattern', 'category'];
+                            let allFieldsFilled = true;
+
+                            requiredFields.forEach(field => {
+                                if (!formData.get(field).trim()) {  // If the field is empty
+                                    allFieldsFilled = false;
+                                }
+                            });
+
+                            if (!allFieldsFilled) {
+                                alert('Please fill out all required fields.');
+                                return;  // Stop further execution if any field is empty
+                            }
+
+                            console.log(`Fabric ID: ${fabricId}`);
+
+                            if (!fabricId) {
+                                console.error("Fabric ID is not set");
+                                return;
+                            }  // Collect the form data
+
+                        // Function to capitalize the first letter and trim spaces
+                        function capitalizeAndTrim(str) {
+                            return str.trim().charAt(0).toUpperCase() + str.trim().slice(1).toLowerCase();
+                        }
+
+                        // Manually process and clean each field
+                        formData.set('name', capitalizeAndTrim(formData.get('name')));
+                        formData.set('color', capitalizeAndTrim(formData.get('color')));
+                        formData.set('material', capitalizeAndTrim(formData.get('material')));
+                        formData.set('pattern', capitalizeAndTrim(formData.get('pattern')));
+                        formData.set('category', capitalizeAndTrim(formData.get('category')));
+
+                        // Keep 'price' untouched but trim extra spaces
+                        formData.set('price', formData.get('price').trim());
+
+                        try {
+                            const response = await fetch(`/edit_fabric/${fabricId}`, {
+                                method: 'POST',
+                                body: formData
+                            });
+
+                            if (!response.ok) {
+                                throw new Error('Network response was not ok');
+                            }
+
+                            const data = await response.json();
+
+                            if (data.success) {
+                                // Ensure the elements exist before updating their content
+                                const fabricNameElement = document.getElementById('fabric-name');
+                                const fabricMaterialElement = document.getElementById('fabric-material');
+                                const fabricColorElement = document.getElementById('fabric-color');
+                                const fabricPriceElement = document.getElementById('fabric-price');
+                                const fabricPatternElement = document.getElementById('fabric-pattern');
+                                const fabricCategoryElement = document.getElementById('fabric-category');
+
+                                if (fabricNameElement) fabricNameElement.textContent = formData.get('name');
+                                if (fabricMaterialElement) fabricMaterialElement.textContent = formData.get('material');
+                                if (fabricColorElement) fabricColorElement.textContent = formData.get('color');
+                                if (fabricPriceElement) fabricPriceElement.textContent = formData.get('price');
+                                if (fabricPatternElement) fabricPatternElement.textContent = formData.get('pattern');
+                                if (fabricCategoryElement) fabricCategoryElement.textContent = formData.get('category');
+
+                                // Close the modal after successful update
+                                alert('Fabric updated successfully!');
+
+            // Close the modal
+            const modal = document.getElementById('modalEditFabric');
+            const modalInstance = bootstrap.Modal.getInstance(modal);
+            if (modalInstance) modalInstance.hide();
+
+            // Reload the admin page after the modal is hidden
+            modal.addEventListener('hidden.bs.modal', function () {
+                window.location.reload();
+            });
+                            } else {
+                                console.error('Failed to update fabric');
+                            }
+                        } catch (error) {
+                            console.error('Error:', error);
+                        }
+                    });
+                });
+
+                let fabricIdToDelete;
+
+    // Capture fabric ID on clicking the delete button
+    document.getElementById('btnDeleteFabric').addEventListener('click', function (e) {
+        fabricIdToDelete = e.target.getAttribute('data-fabric-id');
+    });
+
+    // Send delete request when user confirms deletion
+    document.getElementById('btnConfirmDelete').addEventListener('click', function () {
+        fetch(`/delete_fabric/${fabricId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Fabric deleted successfully.');
+                window.location.href = '/admin/dashboard'; // Redirect to the fabrics list
+            } else {
+                alert('Error deleting fabric.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while deleting the fabric.');
+        });
+    });
+
+
+                    
+
+            });
+        });
+        
+        backButton.addEventListener('click', function() {
+            moreDetails.classList.add('d-none');
+        });
+
+        });
+
+    </script>
+
+<script src="https://cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        mediumZoom('.zoom-image', {
+            margin: 24,
+            background: 'rgba(0, 0, 0,0.8)',
+            scrollOffset: 0
+        });
+    });
+</script>
+    
+</body>
+</html>

@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tahoma:wght@700&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&display=swap" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
+
+    <title>Shirt Craft</title>
+    <style>
+        .filter-icon {
+            position: relative;
+            top: 60px;
+            left: 20px;
+        }
+
+        .filter-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .filter-header .bi-x-lg {
+            cursor: pointer;
+        }
+
+        .scrollable-content {
+            height: 300px;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .scrollable-content .row {
+            flex-wrap: wrap;
+        }
+
+        .scrollable-content .col {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+
+        .scrollable-content .col img {
+            display: block;
+            width: 100%;
+            height: 100px; /* Fixed height for uniformity */
+            object-fit: cover; /* Ensure aspect ratio is maintained */
+        }
+
+        .selected-option {
+            margin-top: 5px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            color: #000000;
+        }
+        
+        /* Set the same height for both boxes */
+        .box {
+            height: 400px; /* Adjust the height as needed */
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        #modelContainer {
+            width: 100%; /* Make sure it takes up the full width of the parent */
+            height: 100%; /* This will fill the height of the parent .box container */
+            background-color: #f0f0f0;
+            position: relative;
+        }
+
+        #canvas {
+            width: 100%;
+            height: 100%; /* Ensure the canvas takes up the full height of the container */
+            display: block; 
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Keep dropdown and selected option aligned */
+        .dropdown-container {
+            position: relative;
+        }
+
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            z-index: 1000;
+        }
+
+        .selected-option {
+            position: absolute;
+            text-align: center;
+            top: 100%;
+            margin-top: 5px;
+            width: 90%;
+        }
+        #toggleFilter .bi {
+        color: black; /* Set icon color to black */
+        }
+        .zoom-image {
+            cursor: pointer;
+            height: auto;
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- Header with Filter Icon -->
+        <div class="d-flex justify-content-between align-items-center mt-4">
+            <h1 class="fs-1 fw-bold ms-5">SHIRT CRAFT</h1>
+            <div class="d-flex align-items-center filter-icon">
+                <button class="btn btn-link text-decoration-none" type="button" id="toggleFilter">
+                    <i class="bi bi-filter fs-2 me-3 mb-1 "></i>
+                </button>
+            </div>
+            <button type="button" class="btn btn-dark me-5" onclick="window.location.href='/login'">Admin</button>
+
+
+        </div>
+
+        <div class="row mt-5 justify-content-center">
+            <!-- Left Box -->
+            <div class="col-md-5">
+                <div id="modelContainer">
+                    
+                </div>
+            </div>
+
+            
+
+            
+            <!-- Spacer Column -->
+            <div class="col-md-1"></div>
+
+            <!-- Right Box with Fabric Images -->
+            <div class="col-md-5">
+                <div id="fabricSection" class="box">
+                    <h2 class="text-center mb-4">Fabrics</h2>
+                    <!-- Scrollable content -->
+                    <div class="scrollable-content">
+                        <div class="row row-cols-4 g-3">
+                            <!-- Fabric Images -->
+                            {% for fabric in fabrics %}
+                            <div class="col">
+                                <div class="border rounded overflow-hidden fabric_image" >
+                                    <a href="#" class="fabric-link" data-id="{{ fabric[0] }}">
+                                        <img src="{{ url_for('fabric_image', fabric_id=fabric[0]) }}" class="img-fluid hover-icon" alt="{{ fabric[1] }}"></a>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>              
+                    </div>
+                </div>
+
+                <!-- Filter Box (Initially hidden) -->
+                <div id="filterSection" class="box d-none h-100 overflow-auto">
+                    <div class="filter-header mb-4 d-flex justify-content-between align-items-center">
+                        <div class="w-100 text-center">
+                            <h2 class="mb-0">Filters</h2>
+                        </div>
+                        <i class="bi bi-x-lg fs-3" id="backToFabric"></i>
+                    </div>
+                    <form action="/filter_fabrics" method="post">
+                        <!-- Filters in two rows -->
+                        <div class="text-center mb-3">
+                            <div class="row mb-3">
+                                <!-- Color Dropdown -->
+                                <div class="col-md-6 dropdown-container">
+                                    <label class="form-label d-block">Color</label>
+                                    <div class="dropdown">
+                                        <button class="btn btn-secondary dropdown-toggle btn-sm w-100" type="button" id="colorDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                                Select Color
+                                        </button>
+                                        <ul class="dropdown-menu w-100" id="colorDropdownMenu" aria-labelledby="colorDropdown">
+                                            {% for color in colors %}
+                                            <li><a class="dropdown-item color-option" href="#" data-option="{{ color[0] }}">{{ color[0] }}</a></li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                    <div id="selectedColor" class="selected-option"></div>
+                                    <input type="hidden" name="color" id="colorInput">
+                                </div>
+
+                                <!-- Material Dropdown -->
+                                <div class="col-md-6 dropdown-container">
+                                    <label class="form-label d-block">Material</label>
+                                    <div class="dropdown">
+                                        <button class="btn btn-secondary dropdown-toggle btn-sm w-100" type="button" id="materialDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                            Select Material
+                                        </button>
+                                        <ul class="dropdown-menu w-100" id="materialDropdownMenu" aria-labelledby="materialDropdown">
+                                            {% for material in materials %}
+                                            <li><a class="dropdown-item material-option" href="#" data-option="{{ material[0] }}">{{ material[0] }}</a></li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                    <div id="selectedMaterial" class="selected-option"></div>
+                                    <input type="hidden" name="material" id="materialInput">
+                                </div>
+                            </div>
+                           <div class="row mb-3"></div>
+                           <div class="row mb-1"></div>
+                            <div class="row mb-3">
+                                <!-- Price Dropdown -->
+                                <div class="col-md-6 dropdown-container">
+                                    <label class="form-label d-block">Price</label>
+                                    <div class="dropdown">
+                                        <button class="btn btn-secondary dropdown-toggle btn-sm w-100" type="button" id="priceDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                            Select Price
+                                        </button>
+                                        <ul class="dropdown-menu w-100" id="priceDropdownMenu" aria-labelledby="priceDropdown">
+                                            <li><a class="dropdown-item price-option" href="#" data-option="1500-3500">LKR 1500 - LKR 3500</a></li>
+                                            <li><a class="dropdown-item price-option" href="#" data-option="3500-5000">LKR 3500 - LKR 5000</a></li>
+                                            <li><a class="dropdown-item price-option" href="#" data-option="5000-7000">LKR 5000 - LKR 7000</a></li>
+                                        </ul>
+                                    </div>
+                                    <div id="selectedPrice" class="selected-option"></div>
+                                    <input type="hidden" name="price" id="priceInput">
+                                </div>
+
+                                <!-- Pattern Dropdown -->
+                                <div class="col-md-6 dropdown-container">
+                                    <label class="form-label d-block">Pattern</label>
+                                    <div class="dropdown">
+                                        <button class="btn btn-secondary dropdown-toggle btn-sm w-100" type="button" id="patternDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                            Select Pattern
+                                        </button>
+                                        <ul class="dropdown-menu w-100" id="patternDropdownMenu" aria-labelledby="patternDropdown">
+                                            {% for pattern in patterns %}
+                                            <li><a class="dropdown-item pattern-option" href="#" data-option="{{ pattern[0] }}">{{ pattern[0] }}</a></li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                    <div id="selectedPattern" class="selected-option"></div>
+                                    <input type="hidden" name="pattern" id="patternInput">
+                                </div>
+                            </div>
+                            <div class="row mb-3 justify-content-center">
+                                <!-- Fabric Category Dropdown -->
+                                <!-- Fabric Category Dropdown -->
+                            <div class="col-md-6 dropdown-container">
+                                <label class="form-label d-block text-center">Fabric Category</label>
+                                <div class="dropdown">
+                                    <button class="btn btn-secondary dropdown-toggle btn-sm w-100" type="button" id="categoryDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Select Category
+                                    </button>
+                                    <ul class="dropdown-menu w-100" id="categoryDropdownMenu" aria-labelledby="categoryDropdown">
+                                        {% for category in categories %}
+                                        <li><a class="dropdown-item category-option" href="#" data-option="{{ category[0] }}">{{ category[0] }}</a></li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                <div id="selectedCategory" class="selected-option text-center mt-2"></div> <!-- Updated ID here -->
+                                <input type="hidden" name="category" id="categoryInput">
+                            </div>
+
+                            </div>
+                            
+                            
+                        </div>
+                          <br>
+                        <!-- Buttons -->
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-dark">Apply Filters</button>
+                            <button type="button" id="resetFilters" class="btn btn-light btn-outline-dark ms-2">Reset</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Fabric More details box (Initially hidden) -->
+                <div id="moredetails" class="box d-none h-100 overflow-auto">
+                    <div class="filter-header mb-4 d-flex justify-content-between align-items-center">
+                        <div class="w-100 text-center">
+                            <h2 class="mb-0">Fabric Details</h2>
+                        </div>
+                        <i class="bi bi-x-lg fs-3" id="backToFabricDetails"></i>
+                    </div>
+                    
+                    <a href="#">
+                        <div class="row row-cols-4 g-1 justify-content-center">
+                            <img id="fabricImage" src="" alt="200px*200px" class="rounded overflow-hidden zoom-image">
+                        </div>
+                    </a>
+                
+                    <br>
+                
+                    <div class="container">
+                        <div class="row mb-2 align-items-center">
+                            <div class="col-4"></div>
+                            <div class="col-2 text-right">
+                                <label for="" class="font-weight-bold">Name:</label>
+                            </div>
+                            <div class="col-4" id="fabricName">
+                                <span id="fabric-name"></span>
+                            </div>
+                        </div>
+                    
+                        <div class="row mb-2 align-items-center">
+                            <div class="col-4"></div>
+                            <div class="col-2 text-right">
+                                <label for="" class="font-weight-bold">Material:</label>
+                            </div>
+                            <div class="col-4" id="fabricMaterial">
+                                <span id="fabric-material"></span>
+                            </div>
+                        </div>
+                    
+                        <div class="row mb-2 align-items-center">
+                            <div class="col-4"></div>
+                            <div class="col-2 text-right">
+                                <label for="" class="font-weight-bold">Color:</label>
+                            </div>
+                            <div class="col-4" id="fabricColor">
+                                <span id="fabric-color"></span>
+                            </div>
+                        </div>
+                    
+                        <div class="row mb-2 align-items-center">
+                            <div class="col-4"></div>
+                            <div class="col-2 text-right">
+                                <label for="" class="font-weight-bold">Price:</label>
+                            </div>
+                            <div class="col-4" id="fabricPrice">
+                                <span id="fabric-price"></span>
+                            </div>
+                        </div>
+                    
+                        <div class="row mb-2 align-items-center">
+                            <div class="col-4"></div>
+                            <div class="col-2 text-right">
+                                <label for="" class="font-weight-bold">Pattern:</label>
+                            </div>
+                            <div class="col-4" id="fabricPattern">
+                                <span id="fabric-pattern"></span>
+                            </div>
+                        </div>
+
+                        <div class="row mb-2 align-items-center">
+                            <div class="col-4"></div>
+                                <div class="col-2 text-right">
+                                    <label for="" class="font-weight-bold">Category:</label>
+                                </div>
+                            <div class="col-4" id="fabricCategory">
+                                <span id="fabric-category"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+                
+
+            </div>
+        </div>
+        <div class="row mt-4">
+            <!-- Body Type Dropdown -->
+            <div class="col-md-2 dropdown-container">
+                <label class="form-label d-block text-center">Body Type</label>
+                <div class="dropdown">
+                    <button class="btn btn-secondary dropdown-toggle btn-sm w-100" type="button" id="bodyTypeDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        Select Body Type
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="bodyTypeDropdown">
+                        <li><a class="dropdown-item" href="#" data-value="fat">Fat</a></li>
+                        <li><a class="dropdown-item" href="#" data-value="slim">Slim</a></li>
+                    </ul>
+                </div>
+            </div>
+        
+            <!-- Sleeve Type Dropdown -->
+            <div class="col-md-2 dropdown-container">
+                <label class="form-label d-block text-center">Sleeve Type</label>
+                <div class="dropdown">
+                    <button class="btn btn-secondary dropdown-toggle btn-sm w-100" type="button" id="sleeveTypeDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        Select Sleeve Type
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="sleeveTypeDropdown">
+                        <li><a class="dropdown-item" href="#" data-value="half">Half Sleeve</a></li>
+                        <li><a class="dropdown-item" href="#" data-value="full">Full Sleeve</a></li>
+                    </ul>
+                </div>
+            </div>
+        
+            <!-- Collar Type Dropdown -->
+            <div class="col-md-2 dropdown-container">
+                <label class="form-label d-block text-center">Collar Type</label>
+                <div class="dropdown">
+                    <button class="btn btn-secondary dropdown-toggle btn-sm w-100" type="button" id="collarTypeDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        Select Collar Type
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="collarTypeDropdown">
+                        <li><a class="dropdown-item" href="#" data-value="normal">Normal Collar</a></li>
+                        <li><a class="dropdown-item" href="#" data-value="nehru">Nehru Collar</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        
+        
+        
+    </div>
+
+    <!-- JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"></script>
+    <!-- Use Three.js and GLTFLoader from CDN -->
+    <!-- Use the module version of Three.js -->
+    <script>
+        let scene, camera, renderer, controls, loader;
+        let currentModel = null;
+    
+        const selections = {
+            bodyType: null,
+            sleeveType: null,
+            collarType: null,
+        };
+    
+        function init() {
+            // Scene setup
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); // Transparent background
+    
+            // Get the model container element and append the renderer to it
+            const modelContainer = document.getElementById('modelContainer');
+            renderer.setSize(modelContainer.offsetWidth, modelContainer.offsetHeight); // Set size dynamically
+            modelContainer.appendChild(renderer.domElement);
+    
+            renderer.setClearColor(0x000000, 0); // Fully transparent background
+    
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            loader = new THREE.GLTFLoader();
+    
+            // Add ambient and directional lights
+            const ambientLight = new THREE.AmbientLight(0x404040, 1);
+            scene.add(ambientLight);
+    
+            const directionalLight1 = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight1.position.set(1, 1, 1).normalize();
+            scene.add(directionalLight1);
+    
+            const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight2.position.set(-1, -1, -1).normalize();
+            scene.add(directionalLight2);
+    
+            // Position the camera
+            camera.position.set(0, 1, 5);
+            controls.target.set(0, 1, 0);
+    
+            animate();
+        }
+    
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+    
+        function constructModelPath() {
+            const { bodyType, sleeveType, collarType } = selections;
+            if (bodyType && sleeveType && collarType) {
+                return `/static/models/${bodyType}_${capitalizeFirstLetter(sleeveType)}_Sleeve_${capitalizeFirstLetter(collarType)}_Collar.glb`;
+            }
+            return null;
+        }
+    
+        function capitalizeFirstLetter(string) {
+            return string.charAt(0).toUpperCase() + string.slice(1);
+        }
+    
+        function loadModel() {
+            const modelPath = constructModelPath();
+            if (!modelPath) {
+                console.error('All dropdown options must be selected.');
+                return;
+            }
+    
+            if (currentModel) {
+                scene.remove(currentModel);
+            }
+    
+            loader.load(
+                modelPath,
+                function (gltf) {
+                    currentModel = gltf.scene;
+
+                    // Define a realistic skin tone color
+                    const skinToneColor = new THREE.Color(0xfad7b3); // Adjust this HEX value for a different tone
+
+                    // Apply the skin tone color to all meshes except "Shirt"
+                    currentModel.traverse(child => {
+                        if (child.isMesh && !child.name.includes('Shirt')) {
+                            console.log('Applying skin tone color to:', child.name); // Log affected meshes
+                            if (!child.material) {
+                                child.material = new THREE.MeshStandardMaterial(); // Create a material if none exists
+                            }
+                            child.material.color = skinToneColor;
+                            child.material.needsUpdate = true;
+                        }
+                    });
+    
+                    // Compute the bounding box of the model
+                    const box = new THREE.Box3().setFromObject(currentModel);
+                    const size = new THREE.Vector3();
+                    box.getSize(size);
+    
+                    // Center the model
+                    const center = new THREE.Vector3();
+                    box.getCenter(center);
+                    currentModel.position.set(-center.x, -center.y + size.y / 2, 0);
+    
+                    // Scale the model
+                    const maxDimension = Math.max(size.x, size.y, size.z);
+                    const scaleFactor = 2 / maxDimension;
+                    currentModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
+    
+                    scene.add(currentModel);
+    
+                    // Adjust camera
+                    const cameraZ = Math.max(size.x, size.y, size.z);
+                    camera.position.set(0, 1.7, cameraZ);
+                    controls.target.copy(new THREE.Vector3(0, size.y / 2, 0));
+                    controls.update();
+                },
+                undefined,
+                function (error) {
+                    console.error('Error loading model:', error);
+                }
+            );
+        }
+
+        function applyFabric(fabricId) {
+        fetch(`/fabric_image/${fabricId}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch fabric image');
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                const imageURL = URL.createObjectURL(blob);
+                const textureLoader = new THREE.TextureLoader();
+                textureLoader.load(imageURL, texture => {
+                    console.log('Texture loaded', texture);  // Verify that texture is loaded successfully
+                    if (currentModel) {
+                        currentModel.traverse(child => {
+                            if (child.isMesh && child.name.includes('Shirt')) { 
+                                console.log('Applying texture to shirt mesh:', child);  // Log shirt mesh details
+                                child.material.map = texture;
+                                child.material.needsUpdate = true;
+                            }
+                        });
+                    }
+                });
+
+
+            })
+            .catch(error => console.error('Error applying fabric:', error));
+    }
+
+    
+        document.querySelectorAll('.dropdown-item').forEach(item => {
+            item.addEventListener('click', function () {
+                const dropdownType = this.closest('.dropdown').querySelector('.dropdown-toggle').id;
+                const value = this.getAttribute('data-value');
+    
+                if (dropdownType === 'bodyTypeDropdown') {
+                    selections.bodyType = value;
+                } else if (dropdownType === 'sleeveTypeDropdown') {
+                    selections.sleeveType = value;
+                } else if (dropdownType === 'collarTypeDropdown') {
+                    selections.collarType = value;
+                }
+    
+                // Update dropdown button text
+                this.closest('.dropdown').querySelector('.dropdown-toggle').innerText = this.textContent;
+    
+                // Attempt to load the model after every selection
+                loadModel();
+            });
+        });
+    
+        // Resize renderer on window resize
+        window.addEventListener('resize', function () {
+            const modelContainer = document.getElementById('modelContainer');
+            renderer.setSize(modelContainer.offsetWidth, modelContainer.offsetHeight);
+            camera.aspect = modelContainer.offsetWidth / modelContainer.offsetHeight;
+            camera.updateProjectionMatrix();
+        });
+    
+        init();
+    </script>
+    
+    
+    
+    
+    
+    
+          
+  
+    <script>
+
+document.querySelectorAll('.fabric-link').forEach(link => {
+    link.addEventListener('click', function (event) {
+        event.preventDefault();
+        const fabricId = this.getAttribute('data-id'); // Get the fabric ID
+        console.log('Fabric ID:', fabricId); // Log the fabric ID
+        applyFabric(fabricId); // Call the function to apply the fabric
+    });
+});
+
+
+
+
+                // Select all dropdown items
+        document.querySelectorAll('.dropdown-item').forEach(item => {
+            item.addEventListener('click', function (e) {
+                // Get the relevant button element
+                const dropdownButton = this.closest('.dropdown').querySelector('.dropdown-toggle');
+                
+                // Update the button text with the selected value
+                dropdownButton.textContent = this.textContent;
+                
+                // Optionally, you can also store the selected value as a data attribute on the button
+                dropdownButton.setAttribute('data-value', this.getAttribute('data-value'));
+            });
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+            // Toggle filter section visibility
+            document.getElementById('toggleFilter').addEventListener('click', function () {
+                // Hide both fabric and more details sections
+                document.getElementById('fabricSection').classList.add('d-none');
+                document.getElementById('moredetails').classList.add('d-none');
+                // Show the filter section
+                document.getElementById('filterSection').classList.remove('d-none');
+            });
+            
+
+            //Toggle Fabric details visibility
+            document.querySelectorAll('.fabric_image').forEach(function (element) {
+                element.addEventListener('click', function (event) {
+                    event.preventDefault(); // Prevent the default link behavior
+                    document.getElementById('moredetails').classList.remove('d-none');
+                    document.getElementById('fabricSection').classList.add('d-none');
+                });
+            });
+
+            document.querySelectorAll('.fabric-link').forEach(function (element) {
+                element.addEventListener('click', function (event) {
+                    event.preventDefault(); // Prevent the default link behavior
+                    var fabricId = this.getAttribute('data-id');
+                    
+                    });
+            });
+
+
+            // Go back to fabric section
+            document.getElementById('backToFabric').addEventListener('click', function () {
+                document.getElementById('filterSection').classList.add('d-none');
+                document.getElementById('fabricSection').classList.remove('d-none');
+            });
+
+            document.getElementById('backToFabricDetails').addEventListener('click', function () {
+                document.getElementById('moredetails').classList.add('d-none');
+                document.getElementById('fabricSection').classList.remove('d-none');
+            });
+
+            const fabricLinks = document.querySelectorAll('.fabric-link');
+            const moreDetails = document.getElementById('moredetails');
+            const backButton = document.getElementById('backToFabricDetails');
+
+            
+
+            fabricLinks.forEach(link => {
+            link.addEventListener('click', function(event) {
+                event.preventDefault();
+                
+                const fabricId = this.getAttribute('data-id');
+                
+                fetch(`/fabric_details/${fabricId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('fabricImage').src = data.image_url;
+                        document.getElementById('fabricName').textContent = data.name;
+                        document.getElementById('fabricMaterial').textContent = data.material;
+                        document.getElementById('fabricColor').textContent = data.color;
+                        const single_price = parseFloat(data.price);
+                        const formattedNewPrice = `${single_price.toLocaleString()} RS`;
+                        document.getElementById('fabricPrice').textContent = formattedNewPrice;
+                        document.getElementById('fabricPattern').textContent = data.pattern;
+                        document.getElementById('fabric-category').textContent = data.category;
+                        
+                        moreDetails.classList.remove('d-none');
+                    })
+                    .catch(error => console.error('Error fetching fabric details:', error));
+            });
+        });
+        
+        backButton.addEventListener('click', function() {
+            moreDetails.classList.add('d-none');
+        });
+
+        
+
+            // Handle dropdown selection
+            // Handle dropdown selection
+            function handleDropdownSelection(optionClass, selectedElementId, inputElementId) {
+                document.querySelectorAll(optionClass).forEach(function (el) {
+                    el.addEventListener('click', function (event) {
+                        event.preventDefault();
+                        var selectedOption = event.target.getAttribute('data-option');
+                        var selectedText = event.target.textContent;
+                        console.log('Selected Option:', selectedOption); // Debugging line
+                        console.log('Selected Text:', selectedText); // Debugging line
+                        document.getElementById(selectedElementId).textContent = selectedText;
+                        document.getElementById(inputElementId).value = selectedOption;
+                    });
+                });
+            }
+
+            handleDropdownSelection('.color-option', 'selectedColor', 'colorInput');
+            handleDropdownSelection('.material-option', 'selectedMaterial', 'materialInput');
+            handleDropdownSelection('.pattern-option', 'selectedPattern', 'patternInput');
+            handleDropdownSelection('.category-option', 'selectedCategory', 'categoryInput'); // Updated ID here
+
+
+            // Price filter selection
+            document.querySelectorAll('.price-option').forEach(function (el) {
+                el.addEventListener('click', function (event) {
+                    event.preventDefault();
+                    var selectedPrice = event.target.getAttribute('data-option');
+                    var formattedPrice = '';
+
+                    // Format the price with LKR prefix
+                    switch (selectedPrice) {
+                        case '1500-3500':
+                            formattedPrice = 'LKR 1500 - LKR 3500';
+                            break;
+                        case '3500-5000':
+                            formattedPrice = 'LKR 3500 - LKR 5000';
+                            break;
+                        case '5000-7000':
+                            formattedPrice = 'LKR 5000 - LKR 7000';
+                            break;
+                        default:
+                            formattedPrice = selectedPrice;
+                    }
+
+                    document.getElementById('selectedPrice').textContent = formattedPrice;
+                    document.getElementById('priceInput').value = selectedPrice;
+                });
+            });
+
+            // Reset filters
+            document.getElementById('resetFilters').addEventListener('click', function () {
+                document.getElementById('colorDropdown').textContent = 'Select Color';
+                document.getElementById('materialDropdown').textContent = 'Select Material';
+                document.getElementById('priceDropdown').textContent = 'Select Price';
+                document.getElementById('patternDropdown').textContent = 'Select Pattern';
+                document.getElementById('categoryDropdown').textContent = 'Select Category';
+                document.getElementById('colorInput').value = '';
+                document.getElementById('materialInput').value = '';
+                document.getElementById('priceInput').value = '';
+                document.getElementById('patternInput').value = '';
+                document.getElementById('selectedColor').textContent = '';
+                document.getElementById('selectedMaterial').textContent = '';
+                document.getElementById('selectedPrice').textContent = '';
+                document.getElementById('selectedPattern').textContent = '';
+                document.getElementById('selectedCategory').textContent = '';
+            });
+        });
+
+    </script>
+
+<script src="https://cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        mediumZoom('.zoom-image', {
+            margin: 24,
+            background: 'rgba(0, 0, 0,0.8)',
+            scrollOffset: 0
+        });
+    });
+</script>
+    
+</body>
+</html>
